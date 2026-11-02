@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     kotlin("jvm") version "2.3.21"
     kotlin("plugin.spring") version "2.3.21"
     kotlin("plugin.jpa") version "2.3.21"
@@ -31,6 +31,7 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("org.postgresql:postgresql")
+
 
     // Spring Security core: authentication, authorization, filter chain, CSRF, and method security.
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -111,20 +112,6 @@ dependencies {
     // Micrometer Prometheus registry — turns the Actuator metrics into a
     // /actuator/prometheus endpoint that Prometheus can scrape every ~15s.
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
-
-    // Twilio SDK — sends SMS verification codes in production (TwilioSmsSender).
-    // A LogSmsSender impl is used in dev/test, so Twilio credentials are only
-    // required when app.sms=twilio.
-    // Exclude Twilio's transitive jjwt 0.11.2: we only use Twilio's REST (SMS) API,
-    // not its JWT helpers, and the old jjwt clashes with our 0.12.6 (NoSuchMethodError
-    // in io.jsonwebtoken.lang.Assert when parsing tokens).
-    implementation("com.twilio.sdk:twilio:10.6.4") {
-        exclude(group = "io.jsonwebtoken")
-    }
-
-    // Google libphonenumber — validates that a phone number is actually possible/valid
-    // for its country (not just E.164-shaped) and normalizes input to canonical E.164.
-    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.52")
 
     // GeographicLib — Karney's geodesic algorithms on the WGS84 ellipsoid. Exact
     // point-to-point distance (and bearing/area/destination if ever needed), more

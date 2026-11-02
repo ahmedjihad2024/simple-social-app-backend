@@ -1,0 +1,131 @@
+package com.example.socialapp.security.jwt
+
+import com.example.socialapp.account.enums.Role
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.Claims
+import io.jsonwebtoken.security.Keys
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Service
+import java.time.Instant
+import java.util.Base64
+import java.util.Date
+import java.util.UUID
+
+@Service
+class JwtService(
+    @Value($$"${jwt.secret}") private val jwtSecret: String
+) {
+
+    private val secretKey by lazy {
+        Keys.hmacShaKeyFor(Base64.getDecoder().decode(jwtSecret))
+    }
+
+    private val accessTokenValidityMs  = 1L * 60L * 60L * 1000L            // 1 HOUR
+    val refreshTokenValidityMs: Long
+        get() = 30L * 24L * 60L * 60L * 1000L // 30 days
+    val verificationTokenValidityMs = 15L * 60L * 1000L // 15 minutes
+
+    fun generateAccessToken(userId: String, roles: Set<Role>): String =
+        generateToken(userId, "access", accessTokenValidityMs, roles)
+
+    fun generateRefreshToken(userId: String): String =
+        generateToken(userId, "refresh", refreshTokenValidityMs, roles = null)
+
+    fun generatePasswordResetToken(userId: String): String =
+        generateToken(userId, "password_reset", verificationTokenValidityMs, roles = null)
+
+    fun generateEmailChangeToken(userId: String, newEmail: String): String {
+        val now = Date()
+        val expiry = Date(now.time + verificationTokenValidityMs)
+        return Jwts.builder()
+            .id(UUID.randomUUID().toString())
+            .subject(userId)
+            .claim("type", "email_change")
+            .claim("new_email", newEmail)
+            .issuedAt(now)
+            .expiration(expiry)
+            .signWith(secretKey)
+            .compact()
+    }
+
+    fun validateAccessToken(token: String): Boolean {
+        val claims = parseAllClaims(token) ?: return false
+        val tokenType = claims["type"] as? String ?: return false
+        return tokenType == "access"
+    }
+
+    fun validateRefreshToken(token: String): Boolean {
+        val claims = parseAllClaims(token) ?: return false
+        val tokenType = claims["type"] as? String ?: return false
+        return tokenType == "refresh"
+    }
+
+    fun validatePasswordResetToken(token: String): Boolean {
+        val claims = parseAllClaims(token) ?: return false
+        val tokenType = claims["type"] as? String ?: return false
+        return tokenType == "password_reset"
+    }
+
+    fun validateEmailChangeToken(token: String): Boolean {
+        val claims = parseAllClaims(token) ?: return false
+        val tokenType = claims["type"] as? String ?: return false
+        return tokenType == "email_change"
+    }
+
+    fun getNewEmailFromToken(token: String): String? {
+        val claims = parseAllClaims(token) ?: return null
+        return claims["new_email"] as? String
+    }
+
+    fun getUserIdFromToken(token: String): String {
+        val claims = parseAllClaims(token)
+            ?: throw IllegalArgumentException("Invalid token.")
+        return claims.subject
+    }
+
+    fun getRolesFromToken(token: String): Set<Role> {
+        val claims = parseAllClaims(token) ?: return emptySet()
+        val raw = claims["roles"] as? List<*> ?: return emptySet()
+        return raw.mapNotNull { name -> runCatching { Role.valueOf(name.toString()) }.getOrNull() }.toSet()
+    }
+
+    fun getJti(token: String): String {
+        val claims = parseAllClaims(token)
+            ?: throw IllegalArgumentException("Invalid token.")
+        return claims.id ?: throw IllegalArgumentException("Token has no jti.")
+    }
+
+    fun getExpiry(token: String): Instant {
+        val claims = parseAllClaims(token)
+            ?: throw IllegalArgumentException("Invalid token.")
+        return claims.expiration.toInstant()
+    }
+
+    private fun generateToken(userId: String, type: String, validityMs: Long, roles: Set<Role>?): String {
+        val now = Date()
+        val expiry = Date(now.time + validityMs)
+        val builder = Jwts.builder()
+            .id(UUID.randomUUID().toString())
+            .subject(userId)
+            .claim("type", type)
+            .issuedAt(now)
+            .expiration(expiry)
+        if (roles != null) {
+            builder.claim("roles", roles.map { it.name })
+        }
+        return builder.signWith(secretKey).compact()
+    }
+
+    private fun parseAllClaims(token: String): Claims? {
+        val raw = if (token.startsWith("Bearer ")) token.removePrefix("Bearer ") else token
+        return try {
+            Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(raw)
+                .payload
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
