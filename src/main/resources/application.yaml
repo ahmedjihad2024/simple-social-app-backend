@@ -121,38 +121,6 @@ app:
     # Emails that get the ADMIN role on registration/login.
     emails: ${ADMIN_EMAILS:}
 
-  rate-limit:
-    # Defaults are tuned for production: strict enough to stop brute-force,
-    # loose enough to never inconvenience a real user. The `dev` profile
-    # overrides these with much higher caps for local testing.
-    # Master switch for the rate-limit filter.
-    enabled: true
-    login:
-      # Max login attempts per refill window.
-      capacity: 20
-      # Window during which the bucket fully refills (ISO-8601 duration).
-      refill: PT1M
-    register:
-      # Max account registrations per window (per IP).
-      capacity: 20
-      refill: PT1H
-    refresh:
-      # Token-refresh calls per window — higher than login because clients refresh often.
-      capacity: 120
-      refill: PT1M
-    admin-login:
-      # Tighter than the user login bucket: the admin persona is a high-value brute-force target.
-      capacity: 5
-      refill: PT1M
-    admin-register:
-      # Admin registration is a rare, manually-driven event.
-      capacity: 5
-      refill: PT1H
-    authenticated:
-      # General per-user limit for authenticated endpoints.
-      capacity: 300
-      refill: PT1M
-
 management:
   endpoints:
     web:

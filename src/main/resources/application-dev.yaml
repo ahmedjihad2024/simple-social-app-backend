@@ -40,27 +40,43 @@ logging:
     org.springframework.cache: TRACE
 
 app:
-  cors:
-    # Allow common local dev frontends (CRA, Vite, etc.) to call the API.
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   rate-limit:
-    # Loose limits for local development — hammer the API without thinking.
-    # Production values live in application.yaml.
-    login:
+    enabled: true
+
+    failure-strategy: FAIL_OPEN
+
+    trusted-proxy-ips:
+      - 127.0.0.1
+      - "::1"
+
+    global:
       capacity: 100
-      refill: PT1M
-    register:
-      capacity: 5
-      refill: PT1M
-    refresh:
-      capacity: 300
-      refill: PT1M
-    admin-login:
-      capacity: 100
-      refill: PT1M
-    admin-register:
-      capacity: 100
-      refill: PT1M
-    authenticated:
-      capacity: 1000
-      refill: PT1M
+      refill-tokens: 100
+      refill-duration: 1m
+      key: USER
+
+    policies:
+
+      login:
+        capacity: 5
+        refill-tokens: 5
+        refill-duration: 1m
+        key: IP
+
+      register:
+        capacity: 5
+        refill-tokens: 5
+        refill-duration: 1h
+        key: IP
+
+      otp-request:
+        capacity: 3
+        refill-tokens: 3
+        refill-duration: 1m
+        key: IP_AND_USER
+
+      password-reset:
+        capacity: 3
+        refill-tokens: 3
+        refill-duration: 5m
+        key: IP

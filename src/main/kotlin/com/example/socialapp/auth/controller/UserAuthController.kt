@@ -6,6 +6,7 @@ import com.example.socialapp.auth.dto.AuthResponse
 import com.example.socialapp.auth.dto.LoginRequest
 import com.example.socialapp.auth.dto.UserRegisterRequest
 import com.example.socialapp.common.dto.ApiResponse
+import com.example.socialapp.security.ratelimit.annotation.RateLimit
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.tags.Tags
 import jakarta.validation.Valid
@@ -34,6 +35,7 @@ class UserAuthController(
             )
         )
 
+    @RateLimit(policy = "login")
     @PostMapping("/login")
     fun login(@Valid @RequestBody body: LoginRequest): ApiResponse<AuthResponse> =
         ApiResponse.ok(authService.login(body.identifier, body.password, Role.USER))

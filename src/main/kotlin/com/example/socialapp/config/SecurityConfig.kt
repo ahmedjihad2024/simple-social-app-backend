@@ -3,8 +3,7 @@ package com.example.socialapp.config
 import com.example.socialapp.security.ApiResponseAccessDeniedHandler
 import com.example.socialapp.security.ApiResponseAuthenticationEntryPoint
 import com.example.socialapp.security.jwt.JwtAuthFilter
-import com.example.socialapp.security.ratelimit.RateLimitFilter
-import com.example.socialapp.security.ratelimit.RateLimitProperties
+import com.example.socialapp.security.ratelimit.filter.GlobalRateLimitFilter
 import jakarta.servlet.DispatcherType
 import org.springframework.beans.factory.annotation.Value
 import com.example.socialapp.sharelink.ShareLinkProperties
@@ -18,6 +17,7 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
@@ -32,7 +32,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 // [EnableConfigurationProperties(RateLimitProperties::class)]
 // Registers RateLimitProperties so Spring binds values
 // from application.yml (like app.rate-limit.*) into that class.
-@EnableConfigurationProperties(RateLimitProperties::class, ShareLinkProperties::class)
+@EnableConfigurationProperties(ShareLinkProperties::class)
 class SecurityConfig(
     @Value($$"${app.cors.allowed-origins:}") private val allowedOrigins: List<String>,
 ) {
@@ -41,7 +41,7 @@ class SecurityConfig(
     fun securityFilterChain(
         http: HttpSecurity,
         jwtAuthFilter: JwtAuthFilter,
-        rateLimitFilter: RateLimitFilter,
+        globalRateLimitFilter: GlobalRateLimitFilter,
         authEntryPoint: ApiResponseAuthenticationEntryPoint,
         accessDeniedHandler: ApiResponseAccessDeniedHandler,
         corsConfigurationSource: CorsConfigurationSource,
@@ -100,7 +100,10 @@ class SecurityConfig(
             // Reads the JWT, validates it, sets the authenticated user
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
             // Counts requests per user/IP and blocks if over the limit.
-            .addFilterAfter(rateLimitFilter, JwtAuthFilter::class.java)
+            .addFilterAfter(
+                globalRateLimitFilter,
+                AnonymousAuthenticationFilter::class.java
+            )
             .build()
     }
 
@@ -138,10 +141,5 @@ class SecurityConfig(
     // Disable auto-registration
     @Bean
     fun jwtAuthFilterRegistration(filter: JwtAuthFilter): FilterRegistrationBean<JwtAuthFilter> =
-        FilterRegistrationBean(filter).apply { isEnabled = false }
-
-    // Disable auto-registration
-    @Bean
-    fun rateLimitFilterRegistration(filter: RateLimitFilter): FilterRegistrationBean<RateLimitFilter> =
         FilterRegistrationBean(filter).apply { isEnabled = false }
 }
