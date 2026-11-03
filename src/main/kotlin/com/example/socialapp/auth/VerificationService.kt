@@ -1,17 +1,17 @@
 package com.example.socialapp.auth
 
-import com.example.socialapp.account.ProfileService
 import com.example.socialapp.account.entities.Account
-import com.example.socialapp.account.enums.Role
 import com.example.socialapp.account.repository.AccountRepository
 import com.example.socialapp.auth.entities.VerificationCode
 import com.example.socialapp.auth.entities.VerificationType
 import com.example.socialapp.auth.exception.VerificationException
+import com.example.socialapp.identity.IdentifierType
+import com.example.socialapp.identity.IdentityService
 import com.example.socialapp.auth.repository.RefreshTokenRepository
 import com.example.socialapp.auth.repository.VerificationCodeRepository
+import com.example.socialapp.auth.senders.OtpSender
 import com.example.socialapp.auth.senders.VERIFICATION_CODE_TTL_MINUTES
 import com.example.socialapp.auth.senders.VerificationCodeGenerator
-import com.example.socialapp.auth.senders.email.EmailSender
 import com.example.socialapp.common.exception.ApiException
 import com.example.socialapp.common.extentions.sha256
 import com.example.socialapp.common.extentions.toUuid
@@ -27,91 +27,112 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 
+/**
+ * Verification codes, password reset and identifier (email / phone) change.
+ * Works on a generic "identifier" — whether that is an email or a phone number is decided by
+ * `app.auth.identifier`, and the matching [OtpSender] delivers the code.
+ */
 @Service
 class VerificationService(
     private val verificationCodeRepository: VerificationCodeRepository,
     private val accountRepository: AccountRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val profileService: ProfileService,
-    private val emailSender: EmailSender,
+    private val identityService: IdentityService,
+    senders: List<OtpSender>,
     private val verificationCodeGenerator: VerificationCodeGenerator,
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
     private val tokenBlacklist: TokenBlacklist,
 ) {
+    private val sendersByType: Map<IdentifierType, OtpSender> = senders.associateBy { it.type }
+
+    init {
+        // Fail at startup, not on the first registration, if the chosen channel has no sender bean.
+        check(identityService.type in sendersByType) {
+            "app.auth.identifier=${identityService.type} but no OtpSender exists for it. " +
+                "Check app.mail.backend / app.sms.backend and provide a sender implementation."
+        }
+    }
+
+    private fun deliver(target: String, code: String) =
+        sendersByType.getValue(identityService.type).sendVerificationCode(target, code)
+
+    // ---------------------------------------------------------------- identifier verification
 
     @Transactional
-    fun requestEmailVerification(email: String): String {
-        val account = accountRepository.findByEmail(email)
+    fun requestVerification(identifier: String): String {
+        val account = identityService.findAccount(identifier)
             ?: throw ApiException.NotFound("error.account.not_found")
-        return sendEmailVerification(account)
+        return sendVerification(account)
     }
 
     @Transactional
-    fun requestEmailVerification(accountId: UUID): String {
+    fun requestVerification(accountId: UUID): String {
         val account = accountRepository.findById(accountId)
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
-        return sendEmailVerification(account)
+        return sendVerification(account)
     }
 
-    private fun sendEmailVerification(account: Account): String {
+    private fun sendVerification(account: Account): String {
+        val identity = identityService.get(account.requireId())
         val code = verificationCodeGenerator.generate()
-        saveOrReplaceCode(account, VerificationType.EMAIL_VERIFICATION, code)
-        emailSender.sendVerificationCode(account.email, code)
+        saveOrReplaceCode(account, VerificationType.IDENTIFIER_VERIFICATION, code)
+        deliver(identity.identifier, code)
         return "error.auth.verification_code_sent".tr()
     }
 
     @Transactional
-    fun verifyEmail(email: String, code: String): Account {
-        val account = accountRepository.findByEmail(email)
+    fun verify(identifier: String, code: String): Account {
+        val account = identityService.findAccount(identifier)
             ?: throw ApiException.NotFound("error.account.not_found")
-        verifyAndConsumeCode(account, VerificationType.EMAIL_VERIFICATION, code)
-        profileService.markEmailVerified(account.requireId(), Role.USER)
+        verifyAndConsumeCode(account, VerificationType.IDENTIFIER_VERIFICATION, code)
+        identityService.markVerified(account.requireId())
         return account
     }
 
+    // ---------------------------------------------------------------- identifier change
+
     @Transactional
-    fun requestEmailChange(accountId: UUID, newEmail: String): String {
+    fun requestIdentifierChange(accountId: UUID, newIdentifier: String): String {
         val account = accountRepository.findById(accountId)
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
 
-        if (newEmail.equals(account.email, ignoreCase = true)) {
-            throw ApiException.BadRequest("error.account.email_same_as_current")
+        val target = identityService.normalize(newIdentifier)
+        if (target == identityService.get(accountId).identifier) {
+            throw ApiException.BadRequest("error.account.identifier_same_as_current")
         }
-
-        val taken = accountRepository.findByEmail(newEmail)
-        if (taken != null && taken.id != account.id) {
-            throw ApiException.Conflict("error.auth.email_already_exists")
+        if (identityService.isTakenByOther(target, accountId)) {
+            throw ApiException.Conflict("error.auth.identifier_already_exists")
         }
 
         val code = verificationCodeGenerator.generate()
-        saveOrReplaceCode(account, VerificationType.EMAIL_CHANGE, code, target = newEmail)
-        emailSender.sendVerificationCode(newEmail, code)
-        return "error.account.email_change_code_sent".tr()
+        saveOrReplaceCode(account, VerificationType.IDENTIFIER_CHANGE, code, target = target)
+        deliver(target, code)
+        return "error.account.identifier_change_code_sent".tr()
     }
 
     /**
-     * Step 1 of Email Change: Verifies the 6-digit code sent to the new email,
-     * burns the OTP, and returns a short-lived email change token.
+     * Step 1 of identifier change: verifies the 6-digit code sent to the new email / phone,
+     * burns the OTP, and returns a short-lived identifier change token.
      */
     @Transactional
-    fun verifyEmailChangeCode(accountId: UUID, code: String): String {
+    fun verifyIdentifierChangeCode(accountId: UUID, code: String): String {
         val account = accountRepository.findById(accountId)
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
 
-        val record = verifyAndConsumeCode(account, VerificationType.EMAIL_CHANGE, code)
-        val targetEmail = record.target ?: throw VerificationException.NoPendingCode()
+        val record = verifyAndConsumeCode(account, VerificationType.IDENTIFIER_CHANGE, code)
+        val target = record.target ?: throw VerificationException.NoPendingCode()
 
-        return jwtService.generateEmailChangeToken(account.requireId().toString(), targetEmail)
+        return jwtService.generateIdentifierChangeToken(account.requireId().toString(), target)
     }
 
     /**
-     * Step 2 of Email Change: Validates the short-lived token, checks email uniqueness,
-     * updates the account email, and invalidates the token.
+     * Step 2 of identifier change: validates the short-lived token, checks uniqueness,
+     * updates the account's identifier, and invalidates the token.
      */
     @Transactional
-    fun confirmEmailChange(accountId: UUID, token: String): Account {
-        if (!jwtService.validateEmailChangeToken(token)) {
+    fun confirmIdentifierChange(accountId: UUID, token: String): Account {
+        if (!jwtService.validateIdentifierChangeToken(token)) {
             throw ApiException.BadRequest("error.auth.invalid_token")
         }
         val jti = jwtService.getJti(token)
@@ -122,49 +143,50 @@ class VerificationService(
         if (tokenUserId != accountId) {
             throw ApiException.Forbidden("error.auth.invalid_token")
         }
-        val targetEmail = jwtService.getNewEmailFromToken(token)
+        val target = jwtService.getNewIdentifierFromToken(token)
             ?: throw ApiException.BadRequest("error.auth.invalid_token")
 
-        val taken = accountRepository.findByEmail(targetEmail)
-        if (taken != null && taken.id != accountId) {
-            throw ApiException.Conflict("error.auth.email_already_exists")
+        if (identityService.isTakenByOther(target, accountId)) {
+            throw ApiException.Conflict("error.auth.identifier_already_exists")
         }
 
         val account = accountRepository.findById(accountId)
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
 
-        account.email = targetEmail
-        accountRepository.save(account)
+        identityService.change(accountId, target)
 
         tokenBlacklist.revoke(jti, jwtService.getExpiry(token))
         return account
     }
 
     @Transactional
-    fun verifyEmailChange(accountId: UUID, code: String, ignoredRequestBodyEmail: String? = null): Account {
-        val token = verifyEmailChangeCode(accountId, code)
-        return confirmEmailChange(accountId, token)
+    fun verifyIdentifierChange(accountId: UUID, code: String): Account {
+        val token = verifyIdentifierChangeCode(accountId, code)
+        return confirmIdentifierChange(accountId, token)
     }
 
+    // ---------------------------------------------------------------- password reset
+
     @Transactional
-    fun requestPasswordReset(email: String): String {
-        val account = accountRepository.findByEmail(email)
+    fun requestPasswordReset(identifier: String): String {
+        val account = identityService.findAccount(identifier)
         if (account != null) {
+            val identity = identityService.get(account.requireId())
             val code = verificationCodeGenerator.generate()
             saveOrReplaceCode(account, VerificationType.PASSWORD_RESET, code)
-            emailSender.sendVerificationCode(account.email, code)
+            deliver(identity.identifier, code)
         }
-        // Always return the exact same response whether the email exists or not (anti-enumeration)
+        // Always return the exact same response whether the identifier exists or not (anti-enumeration)
         return "error.auth.verification_code_sent".tr()
     }
 
     /**
-     * Step 1 of Password Reset: Verifies the 6-digit code sent to the email,
+     * Step 1 of Password Reset: Verifies the 6-digit code sent to the user,
      * burns the OTP, and returns a short-lived reset token.
      */
     @Transactional
-    fun verifyPasswordResetCode(email: String, code: String): String {
-        val account = accountRepository.findByEmail(email)
+    fun verifyPasswordResetCode(identifier: String, code: String): String {
+        val account = identityService.findAccount(identifier)
             ?: throw VerificationException.InvalidCode()
 
         verifyAndConsumeCode(account, VerificationType.PASSWORD_RESET, code)
@@ -198,10 +220,12 @@ class VerificationService(
     }
 
     @Transactional
-    fun confirmPasswordReset(email: String, code: String, newPassword: String) {
-        val resetToken = verifyPasswordResetCode(email, code)
+    fun confirmPasswordReset(identifier: String, code: String, newPassword: String) {
+        val resetToken = verifyPasswordResetCode(identifier, code)
         confirmPasswordReset(resetToken, newPassword)
     }
+
+    // ---------------------------------------------------------------- internals
 
     private fun verifyAndConsumeCode(
         account: Account,

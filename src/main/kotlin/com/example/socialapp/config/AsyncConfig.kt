@@ -18,4 +18,13 @@ class AsyncConfig {
         setThreadNamePrefix("email-")
         initialize()
     }
+
+    @Bean("smsExecutor")
+    fun smsExecutor(): Executor = ThreadPoolTaskExecutor().apply {
+        corePoolSize = 2
+        maxPoolSize = 8
+        queueCapacity = 100
+        setThreadNamePrefix("sms-")
+        initialize()
+    }
 }

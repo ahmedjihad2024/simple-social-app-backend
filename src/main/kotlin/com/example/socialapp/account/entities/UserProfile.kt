@@ -28,9 +28,6 @@ class UserProfile(
     @Column
     var avatarFilename: String? = null,
 
-    @Column(name = "email_verified", nullable = false)
-    var emailVerified: Boolean = false,
-
     @Column(nullable = false)
     var deleted: Boolean = false,
 

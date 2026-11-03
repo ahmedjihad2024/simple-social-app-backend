@@ -22,29 +22,32 @@ import org.springframework.web.bind.annotation.RestController
 class AccountController(
     private val accountService: AccountService,
 ) {
-    @PostMapping("/me/change-email/request")
-    fun changeEmail(
-        @Valid @RequestBody body: ChangeEmailRequest,
+    @Tags(Tag(name = "ChangeIdentifier"))
+    @PostMapping("/me/change-identifier/request")
+    fun changeIdentifier(
+        @Valid @RequestBody body: ChangeIdentifierRequest,
         @AuthenticationPrincipal currentUserId: String,
     ): ApiResponse<AuthResponse.SetUpRequired> =
-        accountService.changeEmail(currentUserId, body.newEmail)
+        accountService.changeIdentifier(currentUserId, body.newIdentifier)
 
-    @PostMapping("/me/change-email/verify-code")
-    fun verifyChangeEmailCode(
-        @Valid @RequestBody body: VerifyEmailChangeCodeRequest,
+    @Tags(Tag(name = "ChangeIdentifier"))
+    @PostMapping("/me/change-identifier/verify-code")
+    fun verifyChangeIdentifierCode(
+        @Valid @RequestBody body: VerifyIdentifierChangeCodeRequest,
         @AuthenticationPrincipal currentUserId: String,
-    ): ApiResponse<EmailChangeTokenResponse> =
-        accountService.verifyChangeEmailCode(currentUserId, body.code)
+    ): ApiResponse<IdentifierChangeTokenResponse> =
+        accountService.verifyChangeIdentifierCode(currentUserId, body.code)
 
-    @PostMapping("/me/change-email/confirm")
-    fun confirmEmailChange(
-        @Valid @RequestBody body: ConfirmEmailChangeRequest,
+    @Tags(Tag(name = "ChangeIdentifier"))
+    @PostMapping("/me/change-identifier/confirm")
+    fun confirmIdentifierChange(
+        @Valid @RequestBody body: ConfirmIdentifierChangeRequest,
         @AuthenticationPrincipal currentUserId: String,
         authentication: Authentication,
     ): ApiResponse<AccountResponse> {
         val role = authentication.authorities.firstNotNullOfOrNull { Role.fromAuthority(it.authority) }
             ?: throw ApiException.Unauthorized("error.auth.invalid_token")
-        return accountService.confirmEmailChange(currentUserId, body.token, role)
+        return accountService.confirmIdentifierChange(currentUserId, body.token, role)
     }
 
     @PostMapping("/me/password")

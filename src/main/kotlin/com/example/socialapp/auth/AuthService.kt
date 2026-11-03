@@ -9,6 +9,7 @@ import com.example.socialapp.account.repository.AccountRepository
 import com.example.socialapp.auth.dto.AuthResponse
 import com.example.socialapp.auth.dto.TokenResponse
 import com.example.socialapp.auth.entities.RefreshToken
+import com.example.socialapp.identity.IdentityService
 import com.example.socialapp.auth.repository.RefreshTokenRepository
 import com.example.socialapp.common.exception.ApiException
 import com.example.socialapp.common.extentions.sha256
@@ -33,44 +34,46 @@ class AuthService(
     private val profileService: ProfileService,
     private val passwordEncoder: PasswordEncoder,
     private val verificationService: VerificationService,
+    private val identityService: IdentityService,
 ) {
 
     @Transactional
     fun register(
         firstName: String,
         lastName: String,
-        email: String,
+        identifier: String,
         password: String,
         role: Role,
     ): AuthResponse.SetUpRequired {
-        val existing = accountRepository.findByEmail(email)
-        if (existing != null) {
-            throw ApiException.Conflict("error.auth.email_already_exists")
+        val normalized = identityService.normalize(identifier)
+        if (identityService.exists(normalized)) {
+            throw ApiException.Conflict("error.auth.identifier_already_exists")
         }
 
         val user = accountRepository.save(
             Account(
-                email = email,
                 hashPassword = passwordEncoder.encode(password)!!,
                 roles = mutableSetOf(role),
             )
         )
         val userId = user.requireId()
 
-        // Create persona profile (emailVerified = false until verified)
+        // The identity (email or phone) starts unverified until the user enters the code.
+        identityService.create(user, normalized)
         profileService.upsertProfile(userId, role, firstName, lastName)
 
-        verificationService.requestEmailVerification(userId)
+        verificationService.requestVerification(userId)
         return AuthResponse.SetUpRequired(
-            email = email,
+            identifier = normalized,
+            identifierType = identityService.type,
             message = "error.auth.verification_code_sent".tr(),
-            emailVerified = false,
+            identifierVerified = false,
         )
     }
 
     @Transactional
-    fun login(email: String, password: String, role: Role): AuthResponse {
-        val user = accountRepository.findByEmail(email)
+    fun login(identifier: String, password: String, role: Role): AuthResponse {
+        val user = identityService.findAccount(identifier)
             ?: throw ApiException.Unauthorized("error.auth.invalid_credentials")
 
         if (!passwordEncoder.matches(password, user.hashPassword)) {
@@ -84,18 +87,20 @@ class AuthService(
             throw ApiException.Forbidden("error.account.role_not_present")
         }
 
-        if (!profileService.isEmailVerified(userId, role)) {
-            verificationService.requestEmailVerification(userId)
+        val identity = identityService.get(userId)
+        if (!identity.verified) {
+            verificationService.requestVerification(userId)
             return AuthResponse.SetUpRequired(
-                email = email,
+                identifier = identity.identifier,
+                identifierType = identity.type,
                 message = "error.auth.verification_code_sent".tr(),
-                emailVerified = false,
+                identifierVerified = false,
             )
         }
 
         val tokens = issueTokens(user, role)
         return AuthResponse.Authenticated(
-            user = user.toResponse(role, profileService.getOrEmpty(userId, role)),
+            user = user.toResponse(role, profileService.getOrEmpty(userId, role), identity),
             accessToken = tokens.accessToken,
             refreshToken = tokens.refreshToken,
         )

@@ -143,6 +143,8 @@ dependencies {
     // Caching
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
+
+    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.52")
 }
 
 kotlin {

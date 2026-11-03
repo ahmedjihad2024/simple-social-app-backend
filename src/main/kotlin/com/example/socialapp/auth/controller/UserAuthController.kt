@@ -30,11 +30,11 @@ class UserAuthController(
     fun register(@Valid @RequestBody body: UserRegisterRequest): ApiResponse<AuthResponse.SetUpRequired> =
         ApiResponse.ok(
             authService.register(
-                body.firstName, body.lastName, body.email, body.password, Role.USER,
+                body.firstName, body.lastName, body.identifier, body.password, Role.USER,
             )
         )
 
     @PostMapping("/login")
     fun login(@Valid @RequestBody body: LoginRequest): ApiResponse<AuthResponse> =
-        ApiResponse.ok(authService.login(body.email, body.password, Role.USER))
+        ApiResponse.ok(authService.login(body.identifier, body.password, Role.USER))
 }

@@ -105,8 +105,17 @@ app:
     app-store-url: ${APP_STORE_URL:}
     play-store-url: ${PLAY_STORE_URL:}
 
+  auth:
+    # The ONE switch between email and phone sign-in: email | phone.
+    # Phone numbers must be sent in international format (E.164), e.g. +201234567890.
+    identifier: ${AUTH_IDENTIFIER:email}
+
   mail:
     backend: ${APP_MAIL_BACKEND:log}
+
+  sms:
+    # log = print the code (dev only). Add a real SmsSender bean for production.
+    backend: ${APP_SMS_BACKEND:log}
 
   admin:
     # Emails that get the ADMIN role on registration/login.

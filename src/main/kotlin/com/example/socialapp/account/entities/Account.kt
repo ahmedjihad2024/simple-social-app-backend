@@ -27,13 +27,6 @@ data class Account(
     var id: UUID? = null,
 
     @Column(
-        unique = true,
-        nullable = false,
-        length = 300
-    )
-    var email: String,
-
-    @Column(
         name = "hash_password",
         nullable = false,
         length = 100

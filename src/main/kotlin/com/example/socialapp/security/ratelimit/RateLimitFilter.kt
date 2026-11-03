@@ -70,11 +70,9 @@ class RateLimitFilter(
 
         return when {
             method == "POST" && (
-                path == "/api/auth/email/resend" ||
-                path == "/api/auth/verify-email/resend" ||
+                path == "/api/auth/resend" ||
                 path == "/api/auth/password-reset/request" ||
-                path == "/api/profile/me/email/request" ||
-                path == "/api/profile/me/change-email/request"
+                path == "/api/profile/me/change-identifier/request"
             ) -> {
                 val authKey = authenticatedKeyOrIp(request, ip)
                 Resolution("code-request:$ip:$authKey", properties.register)

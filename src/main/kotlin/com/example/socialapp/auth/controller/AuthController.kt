@@ -1,11 +1,8 @@
 package com.example.socialapp.auth.controller
 
 import com.example.socialapp.auth.AuthService
-import com.example.socialapp.auth.dto.AuthResponse
 import com.example.socialapp.auth.dto.RefreshRequest
-import com.example.socialapp.auth.dto.ResendVerificationRequest
 import com.example.socialapp.auth.dto.TokenResponse
-import com.example.socialapp.auth.dto.VerifyEmailRequest
 import com.example.socialapp.common.dto.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.tags.Tags

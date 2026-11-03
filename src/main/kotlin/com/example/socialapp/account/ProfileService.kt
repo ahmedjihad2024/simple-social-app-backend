@@ -16,7 +16,6 @@ sealed class ProfileData {
          val firstName: String? = null,
          val lastName: String? = null,
          val avatarFilename: String? = null,
-         val emailVerified: Boolean = false,
     ): ProfileData()
 }
 
@@ -40,13 +39,6 @@ class ProfileService(
             Role.USER -> ProfileData.UserProfileData()
         }
 
-    /** True if this persona has verified their email. */
-    fun isEmailVerified(accountId: UUID, role: Role): Boolean = when (role) {
-        Role.USER -> userProfileRepository.findByAccountId(accountId)?.emailVerified == true
-    }
-
-    fun isRegistered(accountId: UUID, role: Role): Boolean = isEmailVerified(accountId, role)
-
     /**
      * Creates the persona profile if missing and applies any non-null name (null = leave as-is).
      * Returns the resulting data. Used by register and profile updates.
@@ -67,19 +59,6 @@ class ProfileService(
         }
         return getOrEmpty(accountId, role)
     }
-
-    /** Marks this persona email verified, creating the profile first if needed. */
-    fun markEmailVerified(accountId: UUID, role: Role) {
-        when (role) {
-            Role.USER -> {
-                val p = userProfileRepository.findByAccountId(accountId) ?: newProfile(accountId)
-                p.emailVerified = true
-                userProfileRepository.save(p)
-            }
-        }
-    }
-
-    fun markRegistered(accountId: UUID, role: Role) = markEmailVerified(accountId, role)
 
     /** Sets the persona's avatar, creating the profile if needed. Returns the previous filename (if any). */
     fun updateAvatar(accountId: UUID, role: Role, avatarFilename: String): String? = when (role) {

@@ -10,7 +10,7 @@ class LogEmailSender : EmailSender {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun sendVerificationCode(email: String, code: String) {
-        log.info("[EMAIL] Verification code for {} = {}", email, code)
+    override fun sendVerificationCode(target: String, code: String) {
+        log.info("[EMAIL] Verification code for {} = {}", target, code)
     }
 }

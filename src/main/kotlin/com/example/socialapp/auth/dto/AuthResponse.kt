@@ -1,6 +1,7 @@
 package com.example.socialapp.auth.dto
 
 import com.example.socialapp.account.dto.AccountResponse
+import com.example.socialapp.identity.IdentifierType
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
@@ -22,8 +23,10 @@ sealed interface AuthResponse {
     ) : AuthResponse
 
     data class SetUpRequired(
-        val email: String,
+        /** The email / phone a verification code was just sent to. */
+        val identifier: String,
+        val identifierType: IdentifierType,
         val message: String,
-        val emailVerified: Boolean = false,
+        val identifierVerified: Boolean = false,
     ) : AuthResponse
 }

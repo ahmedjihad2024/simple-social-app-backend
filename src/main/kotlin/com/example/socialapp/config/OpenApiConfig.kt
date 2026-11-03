@@ -89,7 +89,7 @@ class OpenApiConfig(
     // derived from that operationId so requests read "Create Post".
     @Bean
     fun personaTagOrderCustomizer(): OpenApiCustomizer = OpenApiCustomizer { openApi ->
-        val personas = listOf("User", "Common", "Auth", "ChangeEmail", "ResetPassword")
+        val personas = listOf("User", "Common", "Auth", "Profile", "ResetPassword", "ChangeIdentifier")
         openApi.paths?.values?.forEach { pathItem ->
             pathItem.readOperations().forEach { operation ->
                 operation.tags = operation.tags?.sortedBy { tag ->

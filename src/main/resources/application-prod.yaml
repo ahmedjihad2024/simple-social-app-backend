@@ -34,6 +34,9 @@ app:
   mail:
     backend: ${APP_MAIL_BACKEND:smtp}
     code: random
+  sms:
+    # No log default in prod: logging OTP codes is unsafe. Implement SmsSender and set this to its name.
+    backend: ${APP_SMS_BACKEND:provider}
   cors:
     # Comma-separated list of allowed origins, injected at deploy time.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}

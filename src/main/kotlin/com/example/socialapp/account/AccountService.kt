@@ -1,7 +1,7 @@
 package com.example.socialapp.account
 
 import com.example.socialapp.account.dto.AccountResponse
-import com.example.socialapp.account.dto.EmailChangeTokenResponse
+import com.example.socialapp.account.dto.IdentifierChangeTokenResponse
 import com.example.socialapp.account.entities.Account
 import com.example.socialapp.account.enums.Role
 import com.example.socialapp.account.lifecycle.PersonaRoleDeactivated
@@ -10,6 +10,7 @@ import com.example.socialapp.account.mapper.toResponse
 import com.example.socialapp.account.repository.AccountRepository
 import com.example.socialapp.auth.VerificationService
 import com.example.socialapp.auth.dto.AuthResponse
+import com.example.socialapp.identity.IdentityService
 import com.example.socialapp.auth.repository.RefreshTokenRepository
 import com.example.socialapp.common.dto.ApiResponse
 import com.example.socialapp.common.exception.ApiException
@@ -38,11 +39,15 @@ class AccountService(
     private val tokenBlacklist: TokenBlacklist,
     private val jwtService: JwtService,
     private val passwordEncoder: PasswordEncoder,
+    private val identityService: IdentityService,
 ) {
     fun me(id: String, role: Role): ApiResponse<AccountResponse> {
         val user = accountRepository.findById(id.toUuid())
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
-        return ApiResponse.ok(user.toResponse(role, profileService.getOrEmpty(user.requireId(), role)))
+        val userId = user.requireId()
+        return ApiResponse.ok(
+            user.toResponse(role, profileService.getOrEmpty(userId, role), identityService.get(userId))
+        )
     }
 
     @Transactional
@@ -98,7 +103,9 @@ class AccountService(
         val userId = user.requireId()
         val previousFilename = profileService.updateAvatar(userId, role, newFilename)
         previousFilename?.let { fileStorageService.delete(FileCategory.AVATAR, it) }
-        return ApiResponse.ok(user.toResponse(role, profileService.getOrEmpty(userId, role)))
+        return ApiResponse.ok(
+            user.toResponse(role, profileService.getOrEmpty(userId, role), identityService.get(userId))
+        )
     }
 
     @Transactional
@@ -110,34 +117,39 @@ class AccountService(
     ): ApiResponse<AccountResponse> {
         val user = accountRepository.findById(id.toUuid())
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
-        val profile = profileService.upsertProfile(user.requireId(), role, firstName, lastName)
-        return ApiResponse.ok(user.toResponse(role, profile))
+        val userId = user.requireId()
+        val profile = profileService.upsertProfile(userId, role, firstName, lastName)
+        return ApiResponse.ok(user.toResponse(role, profile, identityService.get(userId)))
     }
 
-    /** Request changing email address: delegates to unified verification service. */
+    /** Request changing the email / phone: delegates to unified verification service. */
     @Transactional
-    fun changeEmail(id: String, newEmail: String): ApiResponse<AuthResponse.SetUpRequired> {
-        val message = verificationService.requestEmailChange(id.toUuid(), newEmail)
+    fun changeIdentifier(id: String, newIdentifier: String): ApiResponse<AuthResponse.SetUpRequired> {
+        val message = verificationService.requestIdentifierChange(id.toUuid(), newIdentifier)
         return ApiResponse.ok(
             AuthResponse.SetUpRequired(
-                email = newEmail,
+                identifier = identityService.normalize(newIdentifier),
+                identifierType = identityService.type,
                 message = message,
             ),
         )
     }
 
-    /** Verifies email change code: returns short-lived change token. */
+    /** Verifies the identifier change code: returns short-lived change token. */
     @Transactional
-    fun verifyChangeEmailCode(id: String, code: String): ApiResponse<EmailChangeTokenResponse> {
-        val token = verificationService.verifyEmailChangeCode(id.toUuid(), code)
-        return ApiResponse.ok(EmailChangeTokenResponse(emailChangeToken = token))
+    fun verifyChangeIdentifierCode(id: String, code: String): ApiResponse<IdentifierChangeTokenResponse> {
+        val token = verificationService.verifyIdentifierChangeCode(id.toUuid(), code)
+        return ApiResponse.ok(IdentifierChangeTokenResponse(identifierChangeToken = token))
     }
 
-    /** Confirms email change: consumes short-lived token and updates account email. */
+    /** Confirms the change: consumes the short-lived token and updates the account's identifier. */
     @Transactional
-    fun confirmEmailChange(id: String, token: String, role: Role): ApiResponse<AccountResponse> {
-        val account = verificationService.confirmEmailChange(id.toUuid(), token)
-        return ApiResponse.ok(account.toResponse(role, profileService.getOrEmpty(account.requireId(), role)))
+    fun confirmIdentifierChange(id: String, token: String, role: Role): ApiResponse<AccountResponse> {
+        val account = verificationService.confirmIdentifierChange(id.toUuid(), token)
+        val accountId = account.requireId()
+        return ApiResponse.ok(
+            account.toResponse(role, profileService.getOrEmpty(accountId, role), identityService.get(accountId))
+        )
     }
 
     @Transactional

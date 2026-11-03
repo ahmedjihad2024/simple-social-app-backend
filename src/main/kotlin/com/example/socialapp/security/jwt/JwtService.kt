@@ -34,14 +34,14 @@ class JwtService(
     fun generatePasswordResetToken(userId: String): String =
         generateToken(userId, "password_reset", verificationTokenValidityMs, roles = null)
 
-    fun generateEmailChangeToken(userId: String, newEmail: String): String {
+    fun generateIdentifierChangeToken(userId: String, newIdentifier: String): String {
         val now = Date()
         val expiry = Date(now.time + verificationTokenValidityMs)
         return Jwts.builder()
             .id(UUID.randomUUID().toString())
             .subject(userId)
-            .claim("type", "email_change")
-            .claim("new_email", newEmail)
+            .claim("type", "identifier_change")
+            .claim("new_identifier", newIdentifier)
             .issuedAt(now)
             .expiration(expiry)
             .signWith(secretKey)
@@ -66,15 +66,15 @@ class JwtService(
         return tokenType == "password_reset"
     }
 
-    fun validateEmailChangeToken(token: String): Boolean {
+    fun validateIdentifierChangeToken(token: String): Boolean {
         val claims = parseAllClaims(token) ?: return false
         val tokenType = claims["type"] as? String ?: return false
-        return tokenType == "email_change"
+        return tokenType == "identifier_change"
     }
 
-    fun getNewEmailFromToken(token: String): String? {
+    fun getNewIdentifierFromToken(token: String): String? {
         val claims = parseAllClaims(token) ?: return null
-        return claims["new_email"] as? String
+        return claims["new_identifier"] as? String
     }
 
     fun getUserIdFromToken(token: String): String {
