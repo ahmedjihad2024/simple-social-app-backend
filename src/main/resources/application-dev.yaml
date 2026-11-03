@@ -1,12 +1,6 @@
-  # Development profile: verbose logging, permissive CORS for local frontends,
-# detailed error responses, and loose rate limits so the API can be exercised
-# freely during local testing.
+# Development profile: verbose logging, in-memory rate limiting and caches.
 spring:
   autoconfigure:
-    # Dev runs Redis-free: rate limiting and the token blacklist use in-memory
-    # ConcurrentHashMap stores (see InMemoryRateLimitBucketStore / InMemoryTokenBlacklist),
-    # so no Redis connection — and no Docker — is needed locally. Excluding the
-    # auto-config also keeps /actuator/health UP without a Redis server.
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
 
@@ -16,125 +10,99 @@ management:
       enabled: false
 
 server:
-  # Local dev port — avoids clashing with the prod default (8080).
   port: ${PORT:8080}
-  error:
-    # Show stack traces only when ?trace=true is passed — handy for debugging.
-    include-stacktrace: on_param
-    # Always include the exception message in error responses.
-    include-message: always
 
 logging:
   level:
-    # Default level for everything not listed below.
     root: INFO
-    # App package — verbose so we see our own debug logs.
-    org.personal.todo: DEBUG
-    # Spring MVC internals — useful for tracing request handling.
+    com.example.socialapp: DEBUG
     org.springframework.web: DEBUG
-    # Security filter chain — see auth/authz decisions as they happen.
     org.springframework.security: DEBUG
-    # Mongo driver is noisy at INFO; keep it quiet.
-    org.mongodb.driver: WARN
-
     org.springframework.cache: TRACE
 
 app:
   rate-limit:
     enabled: true
-
     failure-strategy: FAIL_OPEN
-
     trusted-proxy-ips:
       - 127.0.0.1
       - "::1"
-
     global:
       capacity: 100
       refill-tokens: 100
       refill-duration: 1m
       key: USER
-
     policies:
-
+      # Auth policies
       login:
         capacity: 5
         refill-tokens: 5
         refill-duration: 1m
         key: IP
-
       register:
         capacity: 5
         refill-tokens: 5
         refill-duration: 1h
         key: IP
-
       refresh:
         capacity: 20
         refill-tokens: 20
         refill-duration: 1m
         key: IP
-
       logout:
         capacity: 20
         refill-tokens: 20
         refill-duration: 1m
         key: IP
-
       verify:
         capacity: 5
         refill-tokens: 5
         refill-duration: 1m
         key: IP
-
       resend-verification:
         capacity: 3
         refill-tokens: 3
         refill-duration: 1m
         key: IP
-
       password-reset-request:
         capacity: 3
         refill-tokens: 3
         refill-duration: 5m
         key: IP
-
       password-reset-verify:
         capacity: 5
         refill-tokens: 5
         refill-duration: 5m
         key: IP
-
       password-reset-confirm:
         capacity: 3
         refill-tokens: 3
         refill-duration: 5m
         key: IP
 
+      # Account / Profile policies
       change-identifier-request:
         capacity: 3
         refill-tokens: 3
         refill-duration: 1m
         key: IP_AND_USER
-
       change-identifier-verify:
         capacity: 5
         refill-tokens: 5
         refill-duration: 1m
         key: IP_AND_USER
-
       change-password:
         capacity: 5
         refill-tokens: 5
         refill-duration: 5m
         key: IP_AND_USER
 
+      # Fallback aliases
       otp-request:
         capacity: 3
         refill-tokens: 3
         refill-duration: 1m
         key: IP_AND_USER
-
       password-reset:
         capacity: 3
         refill-tokens: 3
