@@ -116,53 +116,20 @@ class VerificationService(
      * burns the OTP, and returns a short-lived identifier change token.
      */
     @Transactional
-    fun verifyIdentifierChangeCode(accountId: UUID, code: String): String {
+    fun verifyIdentifierChangeCode(accountId: UUID, code: String): Account {
         val account = accountRepository.findById(accountId)
             .orElseThrow { ApiException.NotFound("error.account.not_found") }
 
         val record = verifyAndConsumeCode(account, VerificationType.IDENTIFIER_CHANGE, code)
         val target = record.target ?: throw VerificationException.NoPendingCode()
 
-        return jwtService.generateIdentifierChangeToken(account.requireId().toString(), target)
-    }
-
-    /**
-     * Step 2 of identifier change: validates the short-lived token, checks uniqueness,
-     * updates the account's identifier, and invalidates the token.
-     */
-    @Transactional
-    fun confirmIdentifierChange(accountId: UUID, token: String): Account {
-        if (!jwtService.validateIdentifierChangeToken(token)) {
-            throw ApiException.BadRequest("error.auth.invalid_token")
-        }
-        val jti = jwtService.getJti(token)
-        if (tokenBlacklist.isRevoked(jti)) {
-            throw ApiException.BadRequest("error.auth.invalid_token")
-        }
-        val tokenUserId = jwtService.getUserIdFromToken(token).toUuid()
-        if (tokenUserId != accountId) {
-            throw ApiException.Forbidden("error.auth.invalid_token")
-        }
-        val target = jwtService.getNewIdentifierFromToken(token)
-            ?: throw ApiException.BadRequest("error.auth.invalid_token")
-
         if (identityService.isTakenByOther(target, accountId)) {
             throw ApiException.Conflict("error.auth.identifier_already_exists")
         }
 
-        val account = accountRepository.findById(accountId)
-            .orElseThrow { ApiException.NotFound("error.account.not_found") }
-
         identityService.change(accountId, target)
 
-        tokenBlacklist.revoke(jti, jwtService.getExpiry(token))
         return account
-    }
-
-    @Transactional
-    fun verifyIdentifierChange(accountId: UUID, code: String): Account {
-        val token = verifyIdentifierChangeCode(accountId, code)
-        return confirmIdentifierChange(accountId, token)
     }
 
     // ---------------------------------------------------------------- password reset

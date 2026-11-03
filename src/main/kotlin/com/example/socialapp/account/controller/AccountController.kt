@@ -35,20 +35,17 @@ class AccountController(
     fun verifyChangeIdentifierCode(
         @Valid @RequestBody body: VerifyIdentifierChangeCodeRequest,
         @AuthenticationPrincipal currentUserId: String,
-    ): ApiResponse<IdentifierChangeTokenResponse> =
-        accountService.verifyChangeIdentifierCode(currentUserId, body.code)
-
-    @Tags(Tag(name = "ChangeIdentifier"))
-    @PostMapping("/me/change-identifier/confirm")
-    fun confirmIdentifierChange(
-        @Valid @RequestBody body: ConfirmIdentifierChangeRequest,
-        @AuthenticationPrincipal currentUserId: String,
         authentication: Authentication,
-    ): ApiResponse<AccountResponse> {
-        val role = authentication.authorities.firstNotNullOfOrNull { Role.fromAuthority(it.authority) }
-            ?: throw ApiException.Unauthorized("error.auth.invalid_token")
-        return accountService.confirmIdentifierChange(currentUserId, body.token, role)
-    }
+    ): ApiResponse<AccountResponse>
+        {
+            val role = authentication.authorities.firstNotNullOfOrNull { Role.fromAuthority(it.authority) }
+                ?: throw ApiException.Unauthorized("error.auth.invalid_token")
+            return accountService.verifyChangeIdentifierCode(
+                currentUserId,
+                body.code,
+                role
+            )
+        }
 
     @PostMapping("/me/password")
     fun changePassword(

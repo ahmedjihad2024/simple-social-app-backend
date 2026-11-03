@@ -137,19 +137,10 @@ class AccountService(
 
     /** Verifies the identifier change code: returns short-lived change token. */
     @Transactional
-    fun verifyChangeIdentifierCode(id: String, code: String): ApiResponse<IdentifierChangeTokenResponse> {
-        val token = verificationService.verifyIdentifierChangeCode(id.toUuid(), code)
-        return ApiResponse.ok(IdentifierChangeTokenResponse(identifierChangeToken = token))
-    }
-
-    /** Confirms the change: consumes the short-lived token and updates the account's identifier. */
-    @Transactional
-    fun confirmIdentifierChange(id: String, token: String, role: Role): ApiResponse<AccountResponse> {
-        val account = verificationService.confirmIdentifierChange(id.toUuid(), token)
-        val accountId = account.requireId()
+    fun verifyChangeIdentifierCode(id: String, code: String, role: Role): ApiResponse<AccountResponse> {
+        val account = verificationService.verifyIdentifierChangeCode(id.toUuid(), code)
         return ApiResponse.ok(
-            account.toResponse(role, profileService.getOrEmpty(accountId, role), identityService.get(accountId))
-        )
+            account.toResponse(role, profileService.getOrEmpty(account.id!!, role), identityService.get(account.id!!)))
     }
 
     @Transactional
