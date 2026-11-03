@@ -27,6 +27,7 @@ class UserAuthController(
     private val authService: AuthService,
 ) {
 
+    @RateLimit(policy = "register")
     @PostMapping("/register")
     fun register(@Valid @RequestBody body: UserRegisterRequest): ApiResponse<AuthResponse.SetUpRequired> =
         ApiResponse.ok(

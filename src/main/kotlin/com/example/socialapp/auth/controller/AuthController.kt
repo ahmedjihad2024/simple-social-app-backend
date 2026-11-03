@@ -4,6 +4,7 @@ import com.example.socialapp.auth.AuthService
 import com.example.socialapp.auth.dto.RefreshRequest
 import com.example.socialapp.auth.dto.TokenResponse
 import com.example.socialapp.common.dto.ApiResponse
+import com.example.socialapp.security.ratelimit.annotation.RateLimit
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.tags.Tags
 import jakarta.validation.Valid
@@ -22,10 +23,12 @@ import org.springframework.web.bind.annotation.RestController
 class AuthController(
     private val authService: AuthService,
 ) {
+    @RateLimit(policy = "refresh")
     @PostMapping("/refresh")
     fun refresh(@Valid @RequestBody body: RefreshRequest): ApiResponse<TokenResponse> =
         ApiResponse.ok(authService.refresh(body.refreshToken))
 
+    @RateLimit(policy = "logout")
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun logout(

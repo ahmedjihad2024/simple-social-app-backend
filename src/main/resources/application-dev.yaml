@@ -69,6 +69,66 @@ app:
         refill-duration: 1h
         key: IP
 
+      refresh:
+        capacity: 20
+        refill-tokens: 20
+        refill-duration: 1m
+        key: IP
+
+      logout:
+        capacity: 20
+        refill-tokens: 20
+        refill-duration: 1m
+        key: IP
+
+      verify:
+        capacity: 5
+        refill-tokens: 5
+        refill-duration: 1m
+        key: IP
+
+      resend-verification:
+        capacity: 3
+        refill-tokens: 3
+        refill-duration: 1m
+        key: IP
+
+      password-reset-request:
+        capacity: 3
+        refill-tokens: 3
+        refill-duration: 5m
+        key: IP
+
+      password-reset-verify:
+        capacity: 5
+        refill-tokens: 5
+        refill-duration: 5m
+        key: IP
+
+      password-reset-confirm:
+        capacity: 3
+        refill-tokens: 3
+        refill-duration: 5m
+        key: IP
+
+      change-identifier-request:
+        capacity: 3
+        refill-tokens: 3
+        refill-duration: 1m
+        key: IP_AND_USER
+
+      change-identifier-verify:
+        capacity: 5
+        refill-tokens: 5
+        refill-duration: 1m
+        key: IP_AND_USER
+
+      change-password:
+        capacity: 5
+        refill-tokens: 5
+        refill-duration: 5m
+        key: IP_AND_USER
+
       otp-request:
         capacity: 3
         refill-tokens: 3

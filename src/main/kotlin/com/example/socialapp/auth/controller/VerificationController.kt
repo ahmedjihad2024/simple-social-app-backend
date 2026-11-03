@@ -8,6 +8,7 @@ import com.example.socialapp.auth.VerificationService
 import com.example.socialapp.auth.dto.*
 import com.example.socialapp.identity.IdentityService
 import com.example.socialapp.common.dto.ApiResponse
+import com.example.socialapp.security.ratelimit.annotation.RateLimit
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.tags.Tags
 import jakarta.validation.Valid
@@ -30,6 +31,7 @@ class VerificationController(
     private val identityService: IdentityService,
 ) {
 
+    @RateLimit(policy = "verify")
     @PostMapping("/auth/verify")
     fun verify(
         @Valid @RequestBody body: VerifyRequest,
@@ -47,12 +49,14 @@ class VerificationController(
         )
     }
 
+    @RateLimit(policy = "resend-verification")
     @PostMapping("/auth/resend")
     fun resendVerification(
         @Valid @RequestBody body: ResendVerificationRequest,
     ): ApiResponse<String> =
         ApiResponse.ok(verificationService.requestVerification(body.identifier))
 
+    @RateLimit(policy = "password-reset-request")
     @Tags(Tag(name = "ResetPassword"))
     @PostMapping("/auth/password-reset/request")
     fun requestPasswordReset(
@@ -60,6 +64,7 @@ class VerificationController(
     ): ApiResponse<String> =
         ApiResponse.ok(verificationService.requestPasswordReset(body.identifier))
 
+    @RateLimit(policy = "password-reset-verify")
     @Tags(Tag(name = "ResetPassword"))
     @PostMapping("/auth/password-reset/verify-code")
     fun verifyPasswordResetCode(
@@ -69,6 +74,7 @@ class VerificationController(
         return ApiResponse.ok(PasswordResetTokenResponse(resetToken = token))
     }
 
+    @RateLimit(policy = "password-reset-confirm")
     @Tags(Tag(name = "ResetPassword"))
     @PostMapping("/auth/password-reset/confirm")
     fun confirmPasswordReset(

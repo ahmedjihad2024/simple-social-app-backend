@@ -6,6 +6,7 @@ import com.example.socialapp.account.enums.Role
 import com.example.socialapp.auth.dto.AuthResponse
 import com.example.socialapp.common.dto.ApiResponse
 import com.example.socialapp.common.exception.ApiException
+import com.example.socialapp.security.ratelimit.annotation.RateLimit
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.tags.Tags
 import jakarta.validation.Valid
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 class AccountController(
     private val accountService: AccountService,
 ) {
+    @RateLimit(policy = "change-identifier-request")
     @Tags(Tag(name = "ChangeIdentifier"))
     @PostMapping("/me/change-identifier/request")
     fun changeIdentifier(
@@ -30,6 +32,7 @@ class AccountController(
     ): ApiResponse<AuthResponse.SetUpRequired> =
         accountService.changeIdentifier(currentUserId, body.newIdentifier)
 
+    @RateLimit(policy = "change-identifier-verify")
     @Tags(Tag(name = "ChangeIdentifier"))
     @PostMapping("/me/change-identifier/verify-code")
     fun verifyChangeIdentifierCode(
@@ -47,6 +50,7 @@ class AccountController(
             )
         }
 
+    @RateLimit(policy = "change-password")
     @PostMapping("/me/password")
     fun changePassword(
         @Valid @RequestBody body: ChangePasswordRequest,
