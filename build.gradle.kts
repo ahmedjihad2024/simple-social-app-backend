@@ -25,10 +25,6 @@ dependencies {
     // Builds REST APIs over Spring MVC with embedded Tomcat, Jackson JSON, and servlet support.
     implementation("org.springframework.boot:spring-boot-starter-web")
 
-    // STOMP-over-WebSocket messaging: @MessageMapping controllers, the in-memory simple broker,
-    // and SimpMessagingTemplate for pushing live chat messages to connected clients.
-    implementation("org.springframework.boot:spring-boot-starter-websocket")
-
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("org.postgresql:postgresql")
 
@@ -93,9 +89,6 @@ dependencies {
     // Spring Boot Actuator — exposes production-ready endpoints (health, info, metrics).
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-    // Spring Data Redis (Lettuce client) — shared store for rate-limit buckets, presence, and the
-    // "who is viewing" registry, plus the pub/sub bridge that fans live WebSocket messages across
-    // instances. This is what makes the app safe to run as multiple replicas.
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
     // Bucket4j core — token-bucket rate limiting library (used by RateLimitFilter).
