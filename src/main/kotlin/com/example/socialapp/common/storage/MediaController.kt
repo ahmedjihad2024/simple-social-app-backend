@@ -24,8 +24,7 @@ class MediaController(
     private val fileStorageService: FileStorageService,
 ) {
     @Suppress("Xss")
-    @PreAuthorize("hasRole('USER')")
-    @GetMapping("/media/{filename:.+}")
+    @GetMapping("/media/{category}/{filename:.+}")
     fun get(
         @PathVariable category: String,
         @PathVariable filename: String,

@@ -49,12 +49,12 @@ class OpenApiConfig(
         val docsUrl = "$base/docs.html"
         log.info(
             "\n" +
-                "================================================================\n" +
-                " API ready\n" +
-                "   Swagger UI : {}\n" +
-                "   Docs (auto-auth) : {}\n" +
-                "   Postman    : Import → Link → {}\n" +
-                "================================================================",
+                    "================================================================\n" +
+                    " API ready\n" +
+                    "   Swagger UI : {}\n" +
+                    "   Docs (auto-auth) : {}\n" +
+                    "   Postman    : Import → Link → {}\n" +
+                    "================================================================",
             swaggerUrl,
             docsUrl,
             apiDocsUrl,
@@ -89,7 +89,17 @@ class OpenApiConfig(
     // derived from that operationId so requests read "Create Post".
     @Bean
     fun personaTagOrderCustomizer(): OpenApiCustomizer = OpenApiCustomizer { openApi ->
-        val personas = listOf("User", "Common", "Auth", "Profile", "ResetPassword", "ChangeIdentifier")
+        val personas = listOf(
+            "User",
+            "Common",
+            "Auth",
+            "Profile",
+            "ResetPassword",
+            "ChangeIdentifier",
+            "Post",
+            "Comment",
+            "Reaction"
+        )
         openApi.paths?.values?.forEach { pathItem ->
             pathItem.readOperations().forEach { operation ->
                 operation.tags = operation.tags?.sortedBy { tag ->

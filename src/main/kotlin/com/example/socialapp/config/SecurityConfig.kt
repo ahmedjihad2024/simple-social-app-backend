@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -82,6 +83,14 @@ class SecurityConfig(
                         "/error/**",
                         "/.well-known/**",
                     ).permitAll()
+
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/user/post",        // list
+                        "/api/user/post/{id:[0-9a-fA-F\\\\-]{36}}",   // details
+                        "/api/user/post/{postId:[0-9a-fA-F\\\\-]{36}}/comment", // comments
+                    ).permitAll()
+
                     // When an exception happens, Spring internally
                     // forwards the request to an error handler (/error).
                     .dispatcherTypeMatchers(

@@ -37,9 +37,7 @@ enum class FileCategory(
     val visibility: Visibility,
 ) {
     AVATAR("avatars/", 5 * MB, IMAGE_TYPES, Visibility.PUBLIC),
-    IMAGES("images/", 5 * MB, IMAGE_TYPES, Visibility.PUBLIC),
-    TAX_RECORD("tax-records/", 10 * MB, IMAGE_TYPES + "application/pdf", Visibility.PRIVATE),
-    ;
+    IMAGES("images/", 5 * MB, IMAGE_TYPES, Visibility.PUBLIC);
 
     companion object {
         /** Resolves a category from a URL path segment (e.g. "avatars" → [AVATAR]), or null if unknown. */
